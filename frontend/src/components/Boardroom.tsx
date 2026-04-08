@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { AgentNode, SynthesisData, Mode, BoardroomPhase } from '../types'
+import { AgentNode, SynthesisData, ArbitrationData, Mode, BoardroomPhase } from '../types'
 import AgentGraph from './AgentGraph'
 import AgentFeed from './AgentFeed'
 import SimulationPhase from './SimulationPhase'
@@ -14,7 +14,9 @@ export default function Boardroom({
   onReset: () => void
 }) {
   const [agents, setAgents] = useState<AgentNode[]>([])
+  const [contrarians, setContrarians] = useState<AgentNode[]>([])
   const [synthesis, setSynthesis] = useState<SynthesisData | null>(null)
+  const [arbitration, setArbitration] = useState<ArbitrationData | null>(null)
   const [status, setStatus] = useState<'streaming' | 'done'>('streaming')
   const [statusMsg, setStatusMsg] = useState('Assembling experts...')
   const [phase, setPhase] = useState<BoardroomPhase>('design')
@@ -25,25 +27,68 @@ export default function Boardroom({
     const es = new EventSource(`http://localhost:8000/session/${sessionId}/stream`)
 
     es.addEventListener('agent', (e) => {
-      const agent = JSON.parse(e.data) as AgentNode
-      setAgents(prev => [...prev, agent])
-      setStatusMsg(`${agent.name} is analyzing...`)
+      try {
+        const agent = JSON.parse(e.data) as AgentNode
+        setAgents(prev => [...prev, agent])
+        setStatusMsg(`${agent.name} is analyzing...`)
+      } catch {}
     })
 
     es.addEventListener('status', (e) => {
-      const data = JSON.parse(e.data)
-      setStatusMsg(data.message)
+      try {
+        const data = JSON.parse(e.data)
+        setStatusMsg(data.message)
+      } catch {}
     })
 
     es.addEventListener('synthesis', (e) => {
-      const data = JSON.parse(e.data) as SynthesisData
-      setSynthesis(data)
-      // Save synthesis server-side for paper generation
-      fetch(`http://localhost:8000/session/${sessionId}/synthesis`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      })
+      try {
+        const raw = JSON.parse(e.data)
+        // Normalize: ensure all fields are present
+        const data: SynthesisData = {
+          mechanism_name: raw.mechanism_name || 'Synthesis',
+          core_insight: raw.core_insight || '',
+          rules: Array.isArray(raw.rules) ? raw.rules : [],
+          explanation: raw.explanation || '',
+          expected_outcome: raw.expected_outcome || '',
+        }
+        setSynthesis(data)
+        fetch(`http://localhost:8000/session/${sessionId}/synthesis`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        })
+      } catch (err) {
+        console.error('synthesis parse error', err)
+      }
+    })
+
+    es.addEventListener('contrarian_agent', (e) => {
+      try {
+        const agent = JSON.parse(e.data) as AgentNode
+        setContrarians(prev => [...prev, agent])
+        setStatusMsg(`${agent.name} challenging...`)
+      } catch {}
+    })
+
+    es.addEventListener('arbitration', (e) => {
+      try {
+        const raw = JSON.parse(e.data)
+        const data: ArbitrationData = {
+          verdict: raw.verdict || 'STRENGTHENED',
+          robustness_score: raw.robustness_score ?? 5,
+          critical_vulnerabilities: Array.isArray(raw.critical_vulnerabilities) ? raw.critical_vulnerabilities : [],
+          arbitration_reasoning: raw.arbitration_reasoning || '',
+          mechanism_name: raw.mechanism_name || '',
+          core_insight: raw.core_insight || '',
+          rules: Array.isArray(raw.rules) ? raw.rules : [],
+          explanation: raw.explanation || '',
+          expected_outcome: raw.expected_outcome || '',
+        }
+        setArbitration(data)
+      } catch (err) {
+        console.error('arbitration parse error', err)
+      }
     })
 
     es.addEventListener('done', () => {
@@ -61,7 +106,7 @@ export default function Boardroom({
 
   const tabs: { id: BoardroomPhase; label: string; emoji: string; disabled: boolean }[] = [
     { id: 'design', label: 'Expert Design', emoji: '①', disabled: false },
-    { id: 'simulation', label: 'Virtual Test', emoji: '②', disabled: !synthesis },
+    { id: 'simulation', label: 'Virtual Test', emoji: '②', disabled: !arbitration },
     { id: 'paper', label: 'Research Paper', emoji: '③', disabled: simulationResults.length === 0 },
   ]
 
@@ -132,7 +177,7 @@ export default function Boardroom({
               <span style={{ fontSize: 13, color: '#1DB954' }}>Analysis complete</span>
             </div>
           )}
-          <span style={{ fontSize: 13, color: '#6E6E73' }}>{agents.length} experts</span>
+          <span style={{ fontSize: 13, color: '#6E6E73' }}>{agents.length} experts · {contrarians.length} contrarians</span>
           <button onClick={onReset} style={{
             background: 'rgba(0,0,0,0.06)', border: 'none', borderRadius: 8,
             padding: '6px 12px', fontSize: 13, color: '#6E6E73', cursor: 'pointer'
@@ -146,7 +191,9 @@ export default function Boardroom({
           <div style={{ flex: '0 0 60%', position: 'relative' }}>
             <AgentGraph
               agents={agents}
+              contrarians={contrarians}
               synthesis={synthesis}
+              arbitration={arbitration}
               onAgentSelect={setSelectedAgentId}
               selectedAgentId={selectedAgentId}
             />
@@ -158,8 +205,10 @@ export default function Boardroom({
           }}>
             <AgentFeed
               agents={agents}
+              contrarians={contrarians}
               synthesis={synthesis}
-              onTestSociety={synthesis ? () => setPhase('simulation') : undefined}
+              arbitration={arbitration}
+              onTestSociety={arbitration ? () => setPhase('simulation') : undefined}
               selectedAgentId={selectedAgentId}
             />
           </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Component, ReactNode } from 'react'
 import { Mode, AppScreen } from './types'
 import LandingPage from './components/LandingPage'
 import AuthPage from './components/AuthPage'
@@ -8,6 +8,44 @@ import Boardroom from './components/Boardroom'
 import SettingsPage from './components/SettingsPage'
 import LibraryPage from './components/LibraryPage'
 import AnalysisDetailPage from './components/AnalysisDetailPage'
+
+class ErrorBoundary extends Component<{ children: ReactNode; onReset: () => void }, { error: Error | null }> {
+  constructor(props: any) {
+    super(props)
+    this.state = { error: null }
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{
+          width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', background: '#0A0A0F', color: '#fff', padding: 40
+        }}>
+          <div style={{ fontSize: 32, marginBottom: 16 }}>⚠️</div>
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Rendering error</div>
+          <div style={{
+            background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+            borderRadius: 12, padding: 20, maxWidth: 600, width: '100%',
+            fontFamily: 'monospace', fontSize: 12, color: '#EF4444',
+            marginBottom: 24, whiteSpace: 'pre-wrap', wordBreak: 'break-all'
+          }}>
+            {this.state.error.message}{'\n\n'}{this.state.error.stack}
+          </div>
+          <button onClick={() => { this.setState({ error: null }); this.props.onReset() }} style={{
+            background: '#1C6EF3', color: '#fff', border: 'none',
+            borderRadius: 10, padding: '12px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer'
+          }}>
+            Back to start
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 export default function App() {
   const [screen, setScreen] = useState<AppScreen>('landing')
@@ -173,7 +211,9 @@ export default function App() {
           />
         )}
         {screen === 'boardroom' && sessionId && (
-          <Boardroom sessionId={sessionId} mode={mode} problem={problem} onReset={handleReset} />
+          <ErrorBoundary onReset={handleReset}>
+            <Boardroom sessionId={sessionId} mode={mode} problem={problem} onReset={handleReset} />
+          </ErrorBoundary>
         )}
       </div>
     </div>

@@ -10,12 +10,25 @@ export interface AgentNode {
   color: string
   analysis: string
   references: string[]
+  is_contrarian?: boolean
   x?: number
   y?: number
   vx?: number
   vy?: number
   fx?: number | null
   fy?: number | null
+}
+
+export interface ArbitrationData {
+  verdict: 'STRENGTHENED' | 'REVISED' | 'REBUILT'
+  robustness_score: number
+  critical_vulnerabilities: string[]
+  arbitration_reasoning: string
+  mechanism_name: string
+  core_insight: string
+  rules: string[]
+  explanation: string
+  expected_outcome: string
 }
 
 export interface SynthesisData {
