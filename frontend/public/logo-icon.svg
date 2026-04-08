@@ -1,0 +1,57 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#13131F"/>
+      <stop offset="100%" stop-color="#07070D"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect width="200" height="200" rx="44" fill="url(#bg)"/>
+
+  <!--
+    THE TRISKELION MARK
+
+    Three arms spiraling clockwise from a central fixed point.
+
+    Mathematical reading:
+      · Three arms = i, j, k (quaternion imaginary units, cycling i·j=k, j·k=i, k·i=j)
+      · Clockwise rotation = complex multiplication (e^iθ rotates the plane)
+      · Center dot = Gödel's fixed point theorem:
+          every sufficiently expressive system has a statement
+          that refers to itself — a fixed point of self-reference
+
+    Each arm starts from center, sweeps clockwise, ends in a node.
+
+    Arm endpoints (equilateral triangle, r=56 from center 100,100):
+      Top:         (105,  44)
+      Lower-right: (146, 132)
+      Lower-left:  ( 49, 124)
+
+    Control points computed by rotating arm 1 by 120° and 240°.
+    Arm 1: C(130,100) C(120,50) → (105,44)   — sweeps right, arcs up
+    Arm 2: C( 85,126) C(133,142)→ (146,132)  — sweeps down-left, arcs right
+    Arm 3: C( 85, 74) C( 47,108)→ ( 49,124)  — sweeps up-left, arcs down
+  -->
+
+  <!-- Arm 1: i-axis → top node -->
+  <path d="M100,100 C130,100 120,50 105,44"
+        fill="none" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
+
+  <!-- Arm 2: j-axis → lower-right node (arm 1 rotated 120°) -->
+  <path d="M100,100 C85,126 133,142 146,132"
+        fill="none" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
+
+  <!-- Arm 3: k-axis → lower-left node (arm 1 rotated 240°) -->
+  <path d="M100,100 C85,74 47,108 49,124"
+        fill="none" stroke="white" stroke-width="4.5" stroke-linecap="round"/>
+
+  <!-- Node circles at arm tips -->
+  <circle cx="105" cy="44"  r="8.5" fill="white"/>
+  <circle cx="146" cy="132" r="8.5" fill="white"/>
+  <circle cx="49"  cy="124" r="8.5" fill="white"/>
+
+  <!-- Gödel's fixed point: the center -->
+  <circle cx="100" cy="100" r="5.5" fill="white"/>
+
+</svg>
