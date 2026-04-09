@@ -5,6 +5,7 @@ from groq import AsyncGroq, RateLimitError
 import os
 from dotenv import load_dotenv
 from agents import AGENTS_BY_MODE, CONTRARIAN_AGENTS, AgentDef
+from simulation_pipeline import run_simulation_pipeline
 from typing import List, AsyncGenerator
 
 load_dotenv()
@@ -34,6 +35,35 @@ async def groq_create_with_retry(max_retries: int = 4, **kwargs):
             wait = _parse_retry_seconds(e)
             await asyncio.sleep(wait)
     raise RuntimeError("Max retries exceeded")
+
+
+VALID_MODES = [
+    "company", "startup", "platform", "supplychain", "dao",
+    "community", "government", "environment", "education",
+    "healthcare", "media", "sports"
+]
+
+async def classify_mode(context: str, problem: str) -> str:
+    """Auto-detect the best mode from context and problem using LLM."""
+    prompt = (
+        "Classify the following context and problem into exactly one of these modes. "
+        "Return ONLY the mode name, nothing else.\n\n"
+        f"Modes: {', '.join(VALID_MODES)}\n\n"
+        f"Context: {context}\n"
+        f"Problem: {problem}\n\n"
+        "Mode:"
+    )
+    try:
+        response = await groq_create_with_retry(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=10,
+            temperature=0,
+        )
+        detected = response.choices[0].message.content.strip().lower().split()[0]
+        return detected if detected in VALID_MODES else "company"
+    except Exception:
+        return "company"
 
 
 async def run_agent(agent: AgentDef, context: str, problem: str, previous_analyses: List[dict]) -> dict:
@@ -315,5 +345,12 @@ async def run_pipeline(mode: str, context: str, problem: str, pill: dict = None)
     yield f"event: status\ndata: {json.dumps({'message': 'Arbitrating...'})}\n\n"
     arbitration = await run_arbitration(context, problem, synthesis, contrarian_analyses)
     yield f"event: arbitration\ndata: {json.dumps(arbitration)}\n\n"
+
+    # --- Phase 3: Virtual Society Simulation ---
+    yield f"event: status\ndata: {json.dumps({'message': 'Launching virtual society test...'})}\n\n"
+    async for event in run_simulation_pipeline(context, problem, arbitration):
+        if 'event: done' in event:
+            continue  # will emit our own done
+        yield event
 
     yield f"event: done\ndata: {{}}\n\n"

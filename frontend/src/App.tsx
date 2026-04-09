@@ -3,7 +3,6 @@ import { Mode, AppScreen } from './types'
 import LandingPage from './components/LandingPage'
 import AuthPage from './components/AuthPage'
 import ModeSelector from './components/ModeSelector'
-import ContextInput from './components/ContextInput'
 import Boardroom from './components/Boardroom'
 import SettingsPage from './components/SettingsPage'
 import LibraryPage from './components/LibraryPage'
@@ -110,11 +109,6 @@ export default function App() {
 
   const handleAuth = (_token: string) => setScreen('mode')
 
-  const handleModeSelect = (m: Mode) => {
-    setMode(m)
-    setScreen('input')
-  }
-
   const getAuthHeaders = () => {
     const token = localStorage.getItem('driftowl_token')
     return {
@@ -130,7 +124,7 @@ export default function App() {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({
-        mode, context: ctx, problem: prob,
+        mode: 'auto', context: ctx, problem: prob,
         pill: activePill ? {
           mechanism_name: activePill.mechanism_name,
           core_rules: activePill.core_rules,
@@ -141,6 +135,7 @@ export default function App() {
     })
     const data = await res.json()
     setSessionId(data.session_id)
+    setMode(data.detected_mode || 'company')
     setActivePill(null)
     setScreen('boardroom')
   }
@@ -150,6 +145,7 @@ export default function App() {
     setSessionId(null)
     setContext('')
     setProblem('')
+    setMode('company')
   }
 
   // key forces remount → CSS animation replays on every screen change
@@ -173,11 +169,13 @@ export default function App() {
         )}
         {screen === 'mode' && (
           <ModeSelector
-            onSelect={handleModeSelect}
-            onBack={() => setScreen('landing')}
+            onStart={handleStart}
+            onBack={() => { localStorage.removeItem('driftowl_token'); localStorage.removeItem('driftowl_user'); setScreen('landing') }}
             onSettings={() => setScreen('settings')}
             onLibrary={() => setScreen('library')}
             onOpenAnalysis={(id) => { setActiveAnalysisId(id); setScreen('analysis') }}
+            suggestedPill={activePill}
+            onClearPill={() => setActivePill(null)}
           />
         )}
         {screen === 'settings' && (
@@ -197,17 +195,8 @@ export default function App() {
             onBack={() => setScreen('mode')}
             onUsePill={(pill) => {
               setActivePill(pill)
-              setScreen('input')
+              setScreen('mode')
             }}
-          />
-        )}
-        {screen === 'input' && (
-          <ContextInput
-            mode={mode}
-            onStart={handleStart}
-            onBack={() => setScreen('mode')}
-            suggestedPill={activePill}
-            onClearPill={() => setActivePill(null)}
           />
         )}
         {screen === 'boardroom' && sessionId && (

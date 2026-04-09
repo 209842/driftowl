@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 
 # SessionRequest now defined inline (with optional pill field)
-from pipeline import run_pipeline
+from pipeline import run_pipeline, classify_mode
 from simulation_pipeline import run_simulation_pipeline
 from paper_generator import generate_paper
 from auth import (
@@ -233,6 +233,11 @@ def health():
 async def create_session(request: SessionRequest, authorization: Optional[str] = Header(None)):
     session_id = str(uuid.uuid4())
 
+    # Auto-detect mode if not specified
+    mode = request.mode
+    if mode == "auto" or not mode:
+        mode = await classify_mode(request.context, request.problem)
+
     # Link to user if authenticated
     analysis_id = None
     if authorization and authorization.startswith("Bearer "):
@@ -240,17 +245,17 @@ async def create_session(request: SessionRequest, authorization: Optional[str] =
         user = get_user_by_token(token)
         if user:
             analysis_id = create_analysis(
-                user["id"], request.mode, request.context, request.problem
+                user["id"], mode, request.context, request.problem
             )
 
     sessions[session_id] = {
-        "mode":        request.mode,
+        "mode":        mode,
         "context":     request.context,
         "problem":     request.problem,
         "analysis_id": analysis_id,
         "pill":        request.pill,
     }
-    return {"session_id": session_id, "analysis_id": analysis_id}
+    return {"session_id": session_id, "analysis_id": analysis_id, "detected_mode": mode}
 
 
 @app.get("/session/{session_id}/stream")

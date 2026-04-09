@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react'
-import { AgentNode, SynthesisData, ArbitrationData } from '../types'
+import { AgentNode, SynthesisData, ArbitrationData, Persona, RoundSummary, SimulationComplete } from '../types'
 
 const VERDICT_CONFIG = {
   STRENGTHENED: { label: 'STRENGTHENED', color: '#1DB954', bg: 'rgba(29,185,84,0.08)', border: 'rgba(29,185,84,0.25)' },
@@ -7,15 +7,30 @@ const VERDICT_CONFIG = {
   REBUILT:      { label: 'REBUILT',      color: '#EF4444', bg: 'rgba(239,68,68,0.08)',  border: 'rgba(239,68,68,0.25)' },
 }
 
+function personaColor(stance: string, decision?: string) {
+  if (decision === 'COMPLY') return '#10B981'
+  if (decision === 'RESIST') return '#EF4444'
+  if (stance === 'resistant') return '#F97316'
+  if (stance === 'receptive') return '#10B981'
+  return '#94A3B8'
+}
+
 export default function AgentFeed({
-  agents, contrarians, synthesis, arbitration, onTestSociety, selectedAgentId
+  agents, contrarians, synthesis, arbitration, selectedAgentId,
+  personas = [], personaDecisions = {}, roundSummaries = [],
+  currentRound = 0, simComplete, onGeneratePaper,
 }: {
   agents: AgentNode[]
   contrarians: AgentNode[]
   synthesis: SynthesisData | null
   arbitration: ArbitrationData | null
-  onTestSociety?: () => void
   selectedAgentId?: string | null
+  personas?: Persona[]
+  personaDecisions?: Record<string, string>
+  roundSummaries?: RoundSummary[]
+  currentRound?: number
+  simComplete?: SimulationComplete | null
+  onGeneratePaper?: () => void
 }) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -25,7 +40,7 @@ export default function AgentFeed({
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [agents.length, contrarians.length, synthesis, arbitration])
+  }, [agents.length, contrarians.length, synthesis, arbitration, personas.length, roundSummaries.length, simComplete])
 
   useEffect(() => {
     if (!selectedAgentId) return
@@ -35,12 +50,8 @@ export default function AgentFeed({
 
   return (
     <div style={{
-      height: '100%',
-      overflowY: 'auto',
-      padding: '20px 16px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 10,
+      height: '100%', overflowY: 'auto', padding: '20px 16px',
+      display: 'flex', flexDirection: 'column', gap: 10,
     }}>
       {agents.length === 0 && (
         <div style={{
@@ -54,77 +65,53 @@ export default function AgentFeed({
         </div>
       )}
 
+      {/* Expert cards */}
       {agents.map((agent) => (
-        <div
-          key={agent.id}
-          ref={el => {
-            if (el) cardRefs.current.set(agent.id, el)
-            else cardRefs.current.delete(agent.id)
-          }}
+        <div key={agent.id}
+          ref={el => { if (el) cardRefs.current.set(agent.id, el); else cardRefs.current.delete(agent.id) }}
           style={{
-            background: selectedAgentId === agent.id
-              ? 'rgba(255,255,255,0.95)'
-              : 'rgba(255,255,255,0.68)',
-            border: selectedAgentId === agent.id
-              ? `1px solid ${agent.color}60`
-              : '1px solid rgba(0,0,0,0.06)',
-            borderRadius: 16,
-            padding: '14px 16px',
+            background: selectedAgentId === agent.id ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.68)',
+            border: selectedAgentId === agent.id ? `1px solid ${agent.color}60` : '1px solid rgba(0,0,0,0.06)',
+            borderRadius: 16, padding: '14px 16px',
             animation: 'fadeInUp 0.3s ease both',
             borderLeft: `3px solid ${agent.color}${selectedAgentId === agent.id ? 'cc' : '40'}`,
             transition: 'all 0.2s ease',
-            boxShadow: selectedAgentId === agent.id
-              ? `0 4px 20px ${agent.color}20`
-              : 'none',
+            boxShadow: selectedAgentId === agent.id ? `0 4px 20px ${agent.color}20` : 'none',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{
               width: 28, height: 28, borderRadius: '50%',
-              background: 'rgba(0,0,0,0.04)',
-              border: '1px solid rgba(0,0,0,0.08)',
+              background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.08)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 12, fontWeight: 700, color: agent.color, flexShrink: 0
-            }}>
-              {agent.name.charAt(0)}
-            </div>
+            }}>{agent.name.charAt(0)}</div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#1C1C1E' }}>{agent.name}</div>
               <div style={{ fontSize: 11, color: '#6E6E73' }}>{agent.role}</div>
             </div>
           </div>
-          <p style={{ fontSize: 13, color: '#3C3C43', lineHeight: 1.6, margin: 0 }}>
-            {agent.analysis}
-          </p>
+          <p style={{ fontSize: 13, color: '#3C3C43', lineHeight: 1.6, margin: 0 }}>{agent.analysis}</p>
         </div>
       ))}
 
+      {/* Synthesis */}
       {synthesis && (
         <div style={{
-          background: 'rgba(255,248,220,0.6)',
-          border: '1px solid rgba(255,200,50,0.3)',
-          borderRadius: 20,
-          padding: 20,
-          marginTop: 8,
-          animation: 'fadeInUp 0.5s ease both',
+          background: 'rgba(255,248,220,0.6)', border: '1px solid rgba(255,200,50,0.3)',
+          borderRadius: 20, padding: 20, marginTop: 8, animation: 'fadeInUp 0.5s ease both',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <span style={{ fontSize: 20 }}>⚡</span>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#0A0A0F' }}>
-                {synthesis.mechanism_name}
-              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#0A0A0F' }}>{synthesis.mechanism_name}</div>
               <div style={{ fontSize: 11, color: '#8A8A8E', letterSpacing: 1 }}>SYNTHESIS</div>
             </div>
           </div>
-
           <div style={{
             background: 'rgba(255,200,50,0.08)', borderRadius: 12, padding: '10px 14px',
             marginBottom: 12, fontStyle: 'italic', fontSize: 14, color: '#0A0A0F', lineHeight: 1.5
-          }}>
-            &ldquo;{synthesis.core_insight}&rdquo;
-          </div>
-
+          }}>&ldquo;{synthesis.core_insight}&rdquo;</div>
           <div style={{ marginBottom: 12 }}>
             {(synthesis.rules || []).map((rule, i) => (
               <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8, alignItems: 'flex-start' }}>
@@ -138,117 +125,79 @@ export default function AgentFeed({
               </div>
             ))}
           </div>
-
-          <div style={{ fontSize: 13, color: '#6E6E73', lineHeight: 1.5, marginBottom: 10 }}>
-            {synthesis.explanation}
-          </div>
-
+          <div style={{ fontSize: 13, color: '#6E6E73', lineHeight: 1.5, marginBottom: 10 }}>{synthesis.explanation}</div>
           <div style={{
             background: 'rgba(29,185,84,0.07)', border: '1px solid rgba(29,185,84,0.2)',
-            borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#1DB954',
-            marginBottom: 14
-          }}>
-            📈 {synthesis.expected_outcome}
-          </div>
-
+            borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#1DB954'
+          }}>📈 {synthesis.expected_outcome}</div>
         </div>
       )}
 
       {/* Contrarian divider */}
       {contrarians.length > 0 && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, marginBottom: 4
-        }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, marginBottom: 4 }}>
           <div style={{ flex: 1, height: 1, background: 'rgba(239,68,68,0.2)' }} />
-          <span style={{
-            fontSize: 10, fontWeight: 700, letterSpacing: 1.5,
-            color: '#EF4444', opacity: 0.8
-          }}>CONTRARIAN TEAM</span>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: '#EF4444', opacity: 0.8 }}>CONTRARIAN TEAM</span>
           <div style={{ flex: 1, height: 1, background: 'rgba(239,68,68,0.2)' }} />
         </div>
       )}
 
-      {/* Contrarian agent cards */}
+      {/* Contrarian cards */}
       {contrarians.map((agent) => (
-        <div
-          key={agent.id}
-          ref={el => {
-            if (el) cardRefs.current.set(agent.id, el)
-            else cardRefs.current.delete(agent.id)
-          }}
+        <div key={agent.id}
+          ref={el => { if (el) cardRefs.current.set(agent.id, el); else cardRefs.current.delete(agent.id) }}
           style={{
-            background: 'rgba(255,247,237,0.7)',
-            border: `1px solid rgba(249,115,22,0.15)`,
-            borderRadius: 16,
-            padding: '14px 16px',
-            animation: 'fadeInUp 0.3s ease both',
-            borderLeft: `3px solid ${agent.color}80`,
+            background: 'rgba(255,247,237,0.7)', border: `1px solid rgba(249,115,22,0.15)`,
+            borderRadius: 16, padding: '14px 16px',
+            animation: 'fadeInUp 0.3s ease both', borderLeft: `3px solid ${agent.color}80`,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{
               width: 28, height: 28, borderRadius: '50%',
-              background: 'rgba(239,68,68,0.06)',
-              border: `1px solid ${agent.color}40`,
+              background: 'rgba(239,68,68,0.06)', border: `1px solid ${agent.color}40`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 12, fontWeight: 700, color: agent.color, flexShrink: 0
-            }}>
-              {agent.name.charAt(0)}
-            </div>
+            }}>{agent.name.charAt(0)}</div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#1C1C1E' }}>{agent.name}</div>
               <div style={{ fontSize: 11, color: '#EF4444', opacity: 0.8 }}>{agent.role}</div>
             </div>
           </div>
-          <p style={{ fontSize: 13, color: '#3C3C43', lineHeight: 1.6, margin: 0 }}>
-            {agent.analysis}
-          </p>
+          <p style={{ fontSize: 13, color: '#3C3C43', lineHeight: 1.6, margin: 0 }}>{agent.analysis}</p>
         </div>
       ))}
 
       {/* Arbitration card */}
       {arbitration && (
         <div style={{
-          background: 'rgba(248,250,255,0.9)',
-          border: `1px solid ${vc.border}`,
-          borderRadius: 20,
-          padding: 20,
-          marginTop: 8,
-          animation: 'fadeInUp 0.5s ease both',
+          background: 'rgba(248,250,255,0.9)', border: `1px solid ${vc.border}`,
+          borderRadius: 20, padding: 20, marginTop: 8, animation: 'fadeInUp 0.5s ease both',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
             <span style={{ fontSize: 20 }}>⚖️</span>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#0A0A0F' }}>
-                {arbitration.mechanism_name}
-              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#0A0A0F' }}>{arbitration.mechanism_name}</div>
               <div style={{ fontSize: 11, color: '#8A8A8E', letterSpacing: 1 }}>ARBITRATED MECHANISM</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{
                 fontSize: 10, fontWeight: 700, letterSpacing: 1,
-                color: vc.color, background: vc.bg,
-                border: `1px solid ${vc.border}`,
+                color: vc.color, background: vc.bg, border: `1px solid ${vc.border}`,
                 borderRadius: 6, padding: '3px 8px'
               }}>{vc.label}</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: vc.color }}>
-                {arbitration.robustness_score}/10
-              </span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: vc.color }}>{arbitration.robustness_score}/10</span>
             </div>
           </div>
 
           <div style={{
             background: 'rgba(0,0,0,0.03)', borderRadius: 10, padding: '10px 14px',
             marginBottom: 12, fontSize: 13, color: '#3C3C43', lineHeight: 1.5, fontStyle: 'italic'
-          }}>
-            {arbitration.arbitration_reasoning}
-          </div>
+          }}>{arbitration.arbitration_reasoning}</div>
 
           {(arbitration.critical_vulnerabilities || []).length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#EF4444', letterSpacing: 0.5, marginBottom: 6 }}>
-                VULNERABILITIES ADDRESSED
-              </div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#EF4444', letterSpacing: 0.5, marginBottom: 6 }}>VULNERABILITIES ADDRESSED</div>
               {(arbitration.critical_vulnerabilities || []).map((v, i) => (
                 <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'flex-start' }}>
                   <span style={{ color: '#EF4444', fontSize: 12, marginTop: 1 }}>✗</span>
@@ -261,16 +210,13 @@ export default function AgentFeed({
           <div style={{
             background: vc.bg, borderRadius: 12, padding: '10px 14px',
             marginBottom: 12, fontStyle: 'italic', fontSize: 14, color: '#0A0A0F', lineHeight: 1.5
-          }}>
-            &ldquo;{arbitration.core_insight}&rdquo;
-          </div>
+          }}>&ldquo;{arbitration.core_insight}&rdquo;</div>
 
           <div style={{ marginBottom: 12 }}>
             {(arbitration.rules || []).map((rule, i) => (
               <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8, alignItems: 'flex-start' }}>
                 <div style={{
-                  width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-                  background: vc.color,
+                  width: 20, height: 20, borderRadius: '50%', flexShrink: 0, background: vc.color,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 10, fontWeight: 700, color: '#fff', marginTop: 1
                 }}>{i + 1}</div>
@@ -279,27 +225,143 @@ export default function AgentFeed({
             ))}
           </div>
 
-          <div style={{ fontSize: 13, color: '#6E6E73', lineHeight: 1.5, marginBottom: 10 }}>
-            {arbitration.explanation}
-          </div>
-
+          <div style={{ fontSize: 13, color: '#6E6E73', lineHeight: 1.5, marginBottom: 10 }}>{arbitration.explanation}</div>
           <div style={{
             background: 'rgba(29,185,84,0.07)', border: '1px solid rgba(29,185,84,0.2)',
-            borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#1DB954', marginBottom: 14
-          }}>
-            📈 {arbitration.expected_outcome}
+            borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#1DB954'
+          }}>📈 {arbitration.expected_outcome}</div>
+        </div>
+      )}
+
+      {/* ── VIRTUAL SOCIETY SECTION ── */}
+      {personas.length > 0 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, marginBottom: 4 }}>
+            <div style={{ flex: 1, height: 1, background: 'rgba(99,102,241,0.2)' }} />
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: '#6366F1' }}>VIRTUAL SOCIETY TEST</span>
+            <div style={{ flex: 1, height: 1, background: 'rgba(99,102,241,0.2)' }} />
           </div>
 
-          {onTestSociety && (
-            <button onClick={onTestSociety} style={{
-              width: '100%', padding: '13px 0', borderRadius: 12, border: 'none',
-              background: 'linear-gradient(135deg, #1C6EF3, #4F46E5)',
-              color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', letterSpacing: -0.2
+          {/* Population grid */}
+          <div style={{
+            background: 'rgba(248,249,255,0.8)', border: '1px solid rgba(99,102,241,0.12)',
+            borderRadius: 16, padding: 14, animation: 'fadeInUp 0.4s ease both',
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#6366F1', letterSpacing: 0.5, marginBottom: 10 }}>
+              {personas.length} INDIVIDUALS · {currentRound > 0 ? `ROUND ${currentRound}/7` : 'BUILDING POPULATION'}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {personas.map(p => {
+                const dec = personaDecisions[p.id]
+                const col = personaColor(p.initial_stance, dec)
+                return (
+                  <div key={p.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '4px 8px', borderRadius: 20,
+                    background: col + '12', border: `1px solid ${col}30`,
+                    fontSize: 11, color: col, fontWeight: 500,
+                    transition: 'all 0.3s ease',
+                  }}>
+                    <div style={{
+                      width: 6, height: 6, borderRadius: '50%',
+                      background: col, flexShrink: 0
+                    }} />
+                    {p.name}
+                    {dec && (
+                      <span style={{ fontSize: 9, fontWeight: 700 }}>
+                        {dec === 'COMPLY' ? '✓' : '✗'}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Round progress bars */}
+            {roundSummaries.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                {roundSummaries.map(rs => (
+                  <div key={rs.round} style={{ marginBottom: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                      <span style={{ fontSize: 10, color: '#6E6E73' }}>Round {rs.round}</span>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: rs.comply_rate >= 0.5 ? '#10B981' : '#EF4444' }}>
+                        {Math.round(rs.comply_rate * 100)}% comply
+                      </span>
+                    </div>
+                    <div style={{ height: 4, borderRadius: 2, background: 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%', borderRadius: 2,
+                        width: `${rs.comply_rate * 100}%`,
+                        background: rs.comply_rate >= 0.6 ? '#10B981' : rs.comply_rate >= 0.4 ? '#F59E0B' : '#EF4444',
+                        transition: 'width 0.6s ease',
+                      }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Simulation complete card */}
+          {simComplete && (
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(79,70,229,0.04))',
+              border: '1px solid rgba(99,102,241,0.2)',
+              borderRadius: 16, padding: 18,
+              animation: 'fadeInUp 0.5s ease both',
             }}>
-              🧪 Test in Virtual Society →
-            </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                <span style={{ fontSize: 20 }}>🧪</span>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0A0A0F' }}>Virtual Society Results</div>
+                  <div style={{ fontSize: 11, color: '#6366F1', letterSpacing: 0.5 }}>
+                    {simComplete.population_size} individuals · 7 rounds
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+                {[
+                  { label: 'Final compliance', value: `${Math.round(simComplete.final_comply_rate * 100)}%`, color: simComplete.final_comply_rate >= 0.6 ? '#10B981' : simComplete.final_comply_rate >= 0.4 ? '#F59E0B' : '#EF4444' },
+                  { label: 'Peak compliance', value: `${Math.round(simComplete.peak_comply_rate * 100)}%`, color: '#6366F1' },
+                  { label: 'Trend', value: simComplete.trend, color: simComplete.trend === 'improving' ? '#10B981' : simComplete.trend === 'declining' ? '#EF4444' : '#F59E0B' },
+                ].map(stat => (
+                  <div key={stat.label} style={{
+                    flex: 1, borderRadius: 10, padding: '10px 12px',
+                    background: 'rgba(255,255,255,0.7)', textAlign: 'center',
+                    border: '1px solid rgba(0,0,0,0.06)',
+                  }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: stat.color }}>{stat.value}</div>
+                    <div style={{ fontSize: 10, color: '#8A8A8E', marginTop: 2 }}>{stat.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Spark bars */}
+              <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 28, marginBottom: 14 }}>
+                {simComplete.rounds_data.map((r, i) => (
+                  <div key={i} style={{
+                    flex: 1, borderRadius: 2,
+                    height: `${Math.max(8, r * 100)}%`,
+                    background: r >= 0.6 ? '#10B981' : r >= 0.4 ? '#F59E0B' : '#EF4444',
+                    opacity: 0.75,
+                    transition: 'height 0.4s ease',
+                  }} />
+                ))}
+              </div>
+
+              {onGeneratePaper && (
+                <button onClick={onGeneratePaper} style={{
+                  width: '100%', padding: '12px 0', borderRadius: 10, border: 'none',
+                  background: 'linear-gradient(135deg, #6366F1, #4F46E5)',
+                  color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', letterSpacing: -0.2
+                }}>
+                  📄 Generate Research Paper →
+                </button>
+              )}
+            </div>
           )}
-        </div>
+        </>
       )}
 
       <div ref={bottomRef} />

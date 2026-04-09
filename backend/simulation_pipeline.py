@@ -35,30 +35,31 @@ async def groq_create_with_retry(max_retries: int = 5, **kwargs):
 
 
 async def extract_population(context: str, problem: str) -> list[dict]:
-    """Extract realistic population personas from the context."""
+    """Extract adversarial population personas for stress-testing the mechanism."""
     response = await groq_create_with_retry(
         model="llama-3.3-70b-versatile",
-        max_tokens=1000,
-        temperature=0.7,
+        max_tokens=1200,
+        temperature=0.85,
         messages=[
             {
                 "role": "system",
-                "content": """Extract a realistic population of individual personas from the described context.
-Return a JSON array of exactly 10 individuals. Each person should be distinct and realistic.
+                "content": """Generate an ADVERSARIAL population of 10 individuals to stress-test a mechanism.
 
-Structure:
-[
-  {
-    "id": "p1",
-    "name": "First name only",
-    "role": "Their role/position",
-    "personality": "2-3 word personality description (e.g. 'skeptical, competitive')",
-    "initial_stance": "resistant|neutral|receptive",
-    "motivation": "What primarily motivates this person at work"
-  }
-]
+REQUIRED DISTRIBUTION (strictly follow this):
+- 4 people RESISTANT: they directly benefit from the current broken system. Give each a concrete, selfish reason to resist (power, money, effort saved, status preserved).
+- 3 people NEUTRAL: genuinely uncertain, they watch the crowd and imitate the majority. They could go either way.
+- 2 people SKEPTICAL-RECEPTIVE: they want the problem solved but doubt this specific mechanism will work.
+- 1 person COMMITTED: genuinely wants change, acts as a minority voice.
 
-Make personas diverse: different personalities, stances, motivations. Include skeptics, enthusiasts, and neutrals.
+Return JSON array of exactly 10:
+[{
+  "id": "p1",
+  "name": "First name only",
+  "role": "Specific role/position in this context",
+  "personality": "2-3 words",
+  "initial_stance": "resistant|neutral|receptive",
+  "motivation": "For resistant: what they PERSONALLY GAIN from the status quo staying broken. For others: their specific concern or hope."
+}]
 Return ONLY the JSON array."""
             },
             {"role": "user", "content": f"Context: {context}\nProblem: {problem}"}
@@ -90,17 +91,19 @@ async def run_round(
                 "role": "system",
                 "content": f"""You are {persona['name']}, {persona['role']}.
 Personality: {persona['personality']}
-Motivation: {persona['motivation']}
-Initial stance: {persona['initial_stance']}"""
+Your self-interest: {persona['motivation']}
+Initial stance: {persona['initial_stance']}
+
+You are a rational, self-interested actor. You comply ONLY if it genuinely serves your interests or if the cost of resisting is too high. Resistant people resist unless consequences become unbearable. Neutral people copy the majority. Do not be agreeable — act in your own interest."""
             },
             {
                 "role": "user",
-                "content": f"""Mechanism rules:
+                "content": f"""Mechanism now in effect:
 {rules_text}
 
-Round {round_num} context: {previous_round_summary if previous_round_summary else "First round — mechanism just announced."}
+Round {round_num}/7. {previous_round_summary if previous_round_summary else "First round — mechanism just announced. Most people are watching cautiously and haven't committed yet."}
 
-Write 1 sentence of your behavior and reasoning.
+Given your personal self-interest, write 1 sentence about what you actually do and why.
 Then on a new line: DECISION: COMPLY or RESIST"""
             }
         ]
