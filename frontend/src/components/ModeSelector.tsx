@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Mode } from '../types'
 
-const API = 'http://localhost:8000'
+import { API } from '../config'
 
 interface Analysis {
   id: string

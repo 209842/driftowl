@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Persona, AgentAction, RoundSummary, SimulationComplete, SynthesisData } from '../types'
+import { API } from '../config'
 
 interface Props {
   sessionId: string
@@ -26,9 +27,9 @@ export default function SimulationPhase({ sessionId, synthesis, onComplete, onGe
 
   const startSimulation = async () => {
     setStarted(true)
-    await fetch(`http://localhost:8000/session/${sessionId}/simulate`, { method: 'POST' })
+    await fetch(`/session/${sessionId}/simulate`, { method: 'POST' })
 
-    const es = new EventSource(`http://localhost:8000/session/${sessionId}/simulate/stream`)
+    const es = new EventSource(`/session/${sessionId}/simulate/stream`)
 
     es.addEventListener('status', e => setStatus(JSON.parse(e.data).message))
 

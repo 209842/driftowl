@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 
-const API = 'http://localhost:8000'
+import { API } from '../config'
 function getToken() { return localStorage.getItem('driftowl_token') || '' }
 
 interface Section { title: string; content: string }

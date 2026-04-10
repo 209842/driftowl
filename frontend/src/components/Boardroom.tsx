@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { AgentNode, SynthesisData, ArbitrationData, Mode, Persona, RoundSummary, SimulationComplete } from '../types'
+import { API } from '../config'
 import AgentGraph from './AgentGraph'
 import AgentFeed from './AgentFeed'
 import PaperView from './PaperView'
@@ -31,7 +32,7 @@ export default function Boardroom({
   const [showPaper, setShowPaper] = useState(false)
 
   useEffect(() => {
-    const es = new EventSource(`http://localhost:8000/session/${sessionId}/stream`)
+    const es = new EventSource(`${API}/session/${sessionId}/stream`)
 
     es.addEventListener('agent', (e) => {
       try {
@@ -59,7 +60,7 @@ export default function Boardroom({
           expected_outcome: raw.expected_outcome || '',
         }
         setSynthesis(data)
-        fetch(`http://localhost:8000/session/${sessionId}/synthesis`, {
+        fetch(`${API}/session/${sessionId}/synthesis`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)

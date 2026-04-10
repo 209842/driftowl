@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Component, ReactNode } from 'react'
 import { Mode, AppScreen } from './types'
+import { API } from './config'
 import LandingPage from './components/LandingPage'
 import AuthPage from './components/AuthPage'
 import ModeSelector from './components/ModeSelector'
@@ -73,7 +74,7 @@ export default function App() {
     // Check for existing valid session
     const savedToken = localStorage.getItem('driftowl_token')
     if (savedToken) {
-      fetch('http://localhost:8000/auth/me', {
+      fetch(`${API}/auth/me`, {
         headers: { Authorization: `Bearer ${savedToken}` }
       })
         .then(r => r.ok ? r.json() : null)
@@ -120,7 +121,7 @@ export default function App() {
   const handleStart = async (ctx: string, prob: string) => {
     setContext(ctx)
     setProblem(prob)
-    const res = await fetch('http://localhost:8000/session', {
+    const res = await fetch(`${API}/session`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({

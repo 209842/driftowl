@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Paper, SynthesisData } from '../types'
+import { API } from '../config'
 
 interface Props {
   sessionId: string
@@ -12,7 +13,7 @@ export default function PaperView({ sessionId, synthesis, simulationResults }: P
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`http://localhost:8000/session/${sessionId}/paper`, {
+    fetch(`${API}/session/${sessionId}/paper`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     })
