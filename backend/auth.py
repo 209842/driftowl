@@ -165,9 +165,9 @@ def login_user(email: str, password: str) -> dict:
             "SELECT * FROM users WHERE email = ?", (email.lower().strip(),)
         ).fetchone()
         if not row:
-            raise ValueError("No account found with this email.")
+            raise ValueError("Invalid email or password.")
         if not bcrypt.checkpw(password.encode(), row["password_hash"].encode()):
-            raise ValueError("Incorrect password.")
+            raise ValueError("Invalid email or password.")
 
         token      = str(uuid.uuid4())
         expires_at = _expires(days=TOKEN_TTL_DAYS)
