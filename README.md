@@ -72,6 +72,108 @@ A full academic paper is generated and downloadable as PDF, structured with abst
 
 ---
 
+## Mathematical Foundations
+
+DriftOwl is built on three interlocking bodies of theory: mechanism design, game theory, and social contagion dynamics. Here is the formal scaffolding underneath the platform.
+
+### 1. Mechanism Design
+
+A mechanism design problem is defined by a tuple $(N, \Theta, A, u, p)$:
+
+| Symbol | Meaning |
+|--------|---------|
+| $N = \{1, \ldots, n\}$ | Set of self-interested agents |
+| $\Theta = \Theta_1 \times \cdots \times \Theta_n$ | Type space — each $\theta_i$ is private information |
+| $A$ | Set of feasible social outcomes |
+| $u_i : A \times \Theta_i \to \mathbb{R}$ | Agent $i$'s utility function |
+| $p \in \Delta(\Theta)$ | Common prior distribution over types |
+
+A **direct mechanism** is a pair $(q, t)$ where $q : \Theta \to A$ is an allocation rule and $t : \Theta \to \mathbb{R}^n$ is a transfer rule. The planner's problem is to choose $(q, t)$ to maximize a social objective subject to two constraints:
+
+**Bayesian Incentive Compatibility (BIC)** — truth-telling must be a Bayesian Nash Equilibrium:
+
+$$\mathbb{E}_{\theta_{-i}}\!\left[u_i(q(\theta_i, \theta_{-i}), \theta_i) + t_i(\theta_i, \theta_{-i})\right] \;\geq\; \mathbb{E}_{\theta_{-i}}\!\left[u_i(q(\hat\theta_i, \theta_{-i}), \theta_i) + t_i(\hat\theta_i, \theta_{-i})\right]$$
+
+for all $\theta_i, \hat\theta_i \in \Theta_i$ and all $i \in N$.
+
+**Individual Rationality (IR)** — participation must be weakly preferred to opting out:
+
+$$\mathbb{E}_{\theta_{-i}}\!\left[u_i(q(\theta_i, \theta_{-i}), \theta_i) + t_i(\theta_i, \theta_{-i})\right] \;\geq\; \bar u_i$$
+
+where $\bar u_i$ is agent $i$'s outside option (reservation utility).
+
+> **Revelation Principle** *(Myerson, 1979)*: Any social choice function implementable by *any* mechanism — no matter how complex — can also be implemented by a **truthful direct mechanism** in which agents simply report their type and it is optimal to do so honestly. This justifies restricting attention to IC mechanisms without loss of generality.
+
+---
+
+### 2. Nash Equilibrium and Dominant Strategies
+
+A strategy profile $(s_1^*, \ldots, s_n^*)$ is a **Nash Equilibrium** if no agent can profitably deviate unilaterally:
+
+$$u_i(s_i^*, s_{-i}^*) \;\geq\; u_i(s_i,\, s_{-i}^*) \quad \forall\, s_i \in S_i,\; \forall\, i \in N$$
+
+A mechanism is said to implement outcome $a^*$ **in dominant strategies** if truth-telling is optimal regardless of what others do — a strictly stronger and more robust solution concept than Bayesian Nash Equilibrium.
+
+**VCG Mechanisms** *(Vickrey-Clarke-Groves)*: The canonical efficient dominant-strategy mechanism sets transfers as:
+
+$$t_i(\theta) = \sum_{j \neq i} u_j(q(\theta), \theta_j) + h_i(\theta_{-i})$$
+
+making each agent the full residual claimant on social surplus — thereby aligning private and social incentives exactly.
+
+---
+
+### 3. The Principal-Agent Problem
+
+When effort is unobservable (moral hazard), the principal maximizes:
+
+$$\max_{w(\cdot)}\; \mathbb{E}\bigl[v(a, \theta) - w(a)\bigr]$$
+
+subject to:
+
+$$\text{(IC)}\quad a^* \in \arg\max_{a}\; \mathbb{E}[w(a)] - c(a)$$
+
+$$\text{(IR)}\quad \mathbb{E}[w(a^*)] - c(a^*) \;\geq\; \bar u$$
+
+where $w(\cdot)$ is the wage (or reward) scheme, $c(a)$ is the private cost of effort, and $\bar u$ is the agent's reservation utility. The IC constraint is the source of the **moral hazard wedge** — efficient risk-sharing and efficient incentives are generically incompatible when effort is hidden.
+
+DriftOwl's agents model this tradeoff explicitly: every proposed mechanism is evaluated on whether its transfer rules satisfy approximate IC, and the contrarian agent **Dr. Goodhart** specifically attacks mechanisms where the induced $a^*$ diverges from the intended target once the metric is observable.
+
+---
+
+### 4. Impossibility Results the Platform Accounts For
+
+**Arrow's Impossibility Theorem** *(1951)*: No social welfare function satisfying Pareto efficiency, independence of irrelevant alternatives, and non-dictatorship can aggregate more than two individuals' preference orderings consistently.
+
+**Gibbard-Satterthwaite Theorem** *(1973/1977)*: Any deterministic social choice function over three or more alternatives that is strategy-proof is either dictatorial or has a restricted range. This places a hard ceiling on what any mechanism — including those DriftOwl proposes — can simultaneously achieve.
+
+The contrarian agent **Dr. Arrow** applies both results to flag when a proposed mechanism implicitly assumes away these constraints.
+
+---
+
+### 5. Virtual Society Simulation — Compliance Dynamics
+
+The simulation models a finite population $N = \{1, \ldots, n\}$ with $n = 10$, stratified by initial resistance type $\theta_i \in \{\text{resistant}, \text{neutral}, \text{skeptical}, \text{committed}\}$.
+
+At each round $r \in \{1, \ldots, 7\}$, each agent chooses an action:
+
+$$a_i^r = \begin{cases} \texttt{COMPLY} & \text{if}\quad \mathbb{E}\!\left[u_i(\texttt{COMPLY},\, \theta_i,\, \mathbf{a}_{-i}^{r-1})\right] \;\geq\; \mathbb{E}\!\left[u_i(\texttt{RESIST},\, \theta_i,\, \mathbf{a}_{-i}^{r-1})\right] \\[4pt] \texttt{RESIST} & \text{otherwise} \end{cases}$$
+
+where $\mathbf{a}_{-i}^{r-1}$ captures the **social observation** effect: agents observe the aggregate compliance rate from the prior round and update accordingly.
+
+The aggregate compliance rate at round $r$:
+
+$$C^r = \frac{1}{n} \sum_{i=1}^{n} \mathbf{1}\!\left[a_i^r = \texttt{COMPLY}\right]$$
+
+**Social contagion** for neutral agents follows a sigmoid threshold model:
+
+$$P\!\left(\text{neutral}_i \xrightarrow{r} \texttt{COMPLY}\right) = \sigma\!\left(\beta \cdot C^{r-1} - \tau\right) = \frac{1}{1 + e^{-\beta(C^{r-1} - \tau)}}$$
+
+where $\beta > 0$ is a contagion intensity parameter and $\tau \in (0,1)$ is the compliance threshold required to tip a fence-sitter.
+
+A mechanism **passes** the simulation if $C^7 \geq 0.6$, meaning at least 6 of 10 adversarial agents have been induced to comply by round 7 — even accounting for the 4 structurally resistant actors who lose personally from the status-quo changing.
+
+---
+
 ## Using DriftOwl
 
 ### 1. Create an account
